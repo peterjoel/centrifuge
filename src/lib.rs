@@ -1,39 +1,34 @@
 pub mod centrifuge;
 
-use std::str;
 
-#[test]
-pub fn test(){
+
+
+
+#[cfg(test)]
+pub mod test {
     use centrifuge::*;
 
-    struct MyProcessor {
-        sequence_nums: Vec<usize>
-    }
+    #[test]
+    pub fn test_perm() {
+        use centrifuge::perm::*;
+        
+        let mut sequence_nums = Vec::<usize>::new();
+        let mut log = vec![0; 12_000];
 
-    let mut sequence_nums = Vec::<usize>::new();
+        {
+            let mut store = PermStore::new(&mut log);
 
-    impl Processor for MyProcessor {
-        fn process(&mut self, msg: Msg) {
-            self.sequence_nums.push(msg.sequence);
+            let mut centrifuge = Centrifuge::new(&mut store, |msg| sequence_nums.push(msg.get_sequence()));
+
+            let data = b"hello";
+            centrifuge.receive_msg( &data[..] );
+
+            let data = b"bye";
+            centrifuge.receive_msg( &data[..] );
         }
+
+
+        assert_eq!(&vec![1, 2], &sequence_nums);
+        assert_eq!(&b"hellobye"[..], &log[0..8]);
     }
-    
-    let mut log = vec![0; 12_000];
-
-    let mut processor = MyProcessor { sequence_nums: Vec::new() };
-    {
-        let mut history = DefaultHistory::new(&mut log);
-
-        let mut centrifuge = Centrifuge::new(&mut history, &mut processor);
-
-        let data = b"hello";
-        centrifuge.receive_msg( &data[..] );
-
-        let data = b"bye";
-        centrifuge.receive_msg( &data[..] );
-    }
-
-
-    assert_eq!(&vec![1, 2], &processor.sequence_nums);
-    assert_eq!(&b"hellobye"[..], &log[0..8]);
 }
