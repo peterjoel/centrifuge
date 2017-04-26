@@ -1,6 +1,4 @@
-use centrifuge::Store;
-use centrifuge::Message;
-use centrifuge::RawMsg;
+use centrifuge::{Store, Message};
 
 pub struct PermStore<'a> {
     sequence: usize,
@@ -8,6 +6,7 @@ pub struct PermStore<'a> {
     data: &'a mut [u8]
 }
 
+#[derive(Debug)]
 pub struct PermMsg<'a> {
     sequence: usize,
     data: &'a [u8],
@@ -23,7 +22,7 @@ impl <'a> PermStore<'a> {
     }
     
     #[inline]
-    fn get_slice(&mut self, from: usize, len: usize) -> &'a [u8] {
+    fn get_slice(&mut self, from: usize, len: usize) -> &'a mut [u8] {
         use std::slice::from_raw_parts_mut;
         let ptr = self.data.as_mut_ptr();
         unsafe {
@@ -32,10 +31,16 @@ impl <'a> PermStore<'a> {
     }
     
     #[inline]
-    fn get_slice_from_to(&mut self, from: usize, to: usize) -> &'a [u8] {
+    fn get_slice_from_to(&mut self, from: usize, to: usize) -> &'a mut [u8] {
         self.get_slice(from, to - from)
     }
 
+    #[inline]
+    fn get_remaining_slice(&mut self) -> &'a mut [u8] {
+        let start = self.position;
+        let end = self.data.len();
+        self.get_slice_from_to(start, end)
+    }
 }
 
 impl <'a> Message<'a> for PermMsg<'a> {
@@ -49,17 +54,18 @@ impl <'a> Message<'a> for PermMsg<'a> {
 
 impl <'a> Store<'a> for PermStore<'a> {
     type Msg = PermMsg<'a>;
-    fn append(&mut self, raw: RawMsg) -> PermMsg<'a> {
+    
+    fn write<W>(&mut self, writer: W) -> PermMsg<'a> 
+        where W: FnOnce(&mut [u8]) -> usize
+    {
         let start = self.position;
-        let end = start + raw.data.len(); 
-
-        self.data[start .. end].clone_from_slice(&raw.data);
-        self.position = end;
+        self.position += writer(&mut self.get_remaining_slice());
         self.sequence += 1;
-
+        let seq = self.sequence;
+        let pos = self.position;
         PermMsg { 
-            sequence: self.sequence,
-            data: self.get_slice_from_to(start, end)
+            sequence: seq,
+            data: self.get_slice_from_to(start, pos)
         }
     }
 }

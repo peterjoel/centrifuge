@@ -1,5 +1,6 @@
 
 pub mod perm;
+//pub mod transient;
 
 
 pub trait Message<'a> {
@@ -7,15 +8,25 @@ pub trait Message<'a> {
     fn get_data(&self) -> &'a [u8];
 }
 
+#[derive(Debug)]
 pub struct RawMsg<'a> {
     pub data: &'a [u8],
 }
 
 pub trait Store<'a> {
     type Msg: Message<'a>;
-    fn append(&mut self, raw: RawMsg) -> Self::Msg;
-}
 
+    fn write<W>(&mut self, writer: W) -> Self::Msg
+        where W: FnOnce(&mut [u8]) -> usize;
+
+    fn write_msg(&mut self, raw: RawMsg) -> Self::Msg {
+        let num_bytes = raw.data.len();
+        self.write(|buf| {
+            buf[0 .. num_bytes].clone_from_slice(&raw.data);
+            num_bytes
+        })
+    }
+}
 
 
 pub struct Centrifuge<'a, T: 'a, P> {
@@ -36,7 +47,7 @@ impl <'a, T, P> Centrifuge<'a, T, P>
 
     pub fn receive_msg(&mut self, data: &[u8]) {
         let raw = RawMsg { data: data };
-        let msg = self.store.append(raw);
+        let msg = self.store.write_msg(raw);
         // TODO handle panics. We should be able to pinpoint the exact message that caused a panics
         // and then take appropriate action and possibly recover.
         (self.processor)(msg);

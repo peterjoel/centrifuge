@@ -2,8 +2,6 @@ pub mod centrifuge;
 
 
 
-
-
 #[cfg(test)]
 pub mod test {
     use centrifuge::*;
@@ -13,12 +11,15 @@ pub mod test {
         use centrifuge::perm::*;
         
         let mut sequence_nums = Vec::<usize>::new();
-        let mut log = vec![0; 12_000];
+        let mut log = vec![0; 16];
 
         {
             let mut store = PermStore::new(&mut log);
 
-            let mut centrifuge = Centrifuge::new(&mut store, |msg| sequence_nums.push(msg.get_sequence()));
+            let mut centrifuge = Centrifuge::new(&mut store, |msg| {
+                println!("Message received: {:?}", msg);
+                sequence_nums.push(msg.get_sequence());
+            });
 
             let data = b"hello";
             centrifuge.receive_msg( &data[..] );
