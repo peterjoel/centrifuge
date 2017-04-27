@@ -1,11 +1,10 @@
-
 pub mod perm;
-//pub mod transient;
+pub mod transient;
 
 
-pub trait Message<'a> {
+pub trait Message {
     fn get_sequence(&self) -> usize;
-    fn get_data(&self) -> &'a [u8];
+    fn get_data(&self) -> &[u8];
 }
 
 #[derive(Debug)]
@@ -14,7 +13,7 @@ pub struct RawMsg<'a> {
 }
 
 pub trait Store<'a> {
-    type Msg: Message<'a>;
+    type Msg: Message;
 
     fn write<W>(&mut self, writer: W) -> Self::Msg
         where W: FnOnce(&mut [u8]) -> usize;
